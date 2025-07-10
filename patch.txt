@@ -89,7 +89,8 @@ class UserController extends ApiMutableModelControllerBase
             )
         ) {
             // Block password changes for root user
-            if (strtolower(trim((string)$node->name)) === 'root') {
+            $username = trim((string)$node->name);
+            if (strtolower($username) === 'root') {
                 throw new UserException(
                     gettext("Password changes are not allowed for the root user"),
                     gettext("Usermanager")
@@ -219,6 +220,24 @@ class UserController extends ApiMutableModelControllerBase
     public function setAction($uuid = null)
     {
         $data = $this->request->getPost(static::$internalModelName);
+        
+        // Check if this is a password change attempt for root user
+        if ($uuid !== null && (
+            (isset($data['password']) && !empty($data['password'])) || 
+            (isset($data['scrambled_password']) && !empty($data['scrambled_password']))
+        )) {
+            $node = $this->getModel()->getNodeByReference('user.' . $uuid);
+            if ($node !== null) {
+                $username = trim((string)$node->name);
+                if (strtolower($username) === 'root') {
+                    throw new UserException(
+                        gettext("Password changes are not allowed for the root user"),
+                        gettext("Usermanager")
+                    );
+                }
+            }
+        }
+        
         $this->setSaveAuditMessage(sprintf('user \"%s\" changed"', $data['name']));
         $result = $this->setBase('user', 'user', $uuid);
         if ($result['result'] != 'failed') {
